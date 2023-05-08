@@ -39,6 +39,23 @@ class KeyVerificationEventMixin:
 
 
 @dataclass
+class KeyVerificationRequestMixin:
+    """Event requesting a key verification.
+
+    Attributes:
+        from_device (str): The device ID which is initiating the request.
+        methods (list): The verification methods supported by the sender.
+        timestamp (int): Required when sent as a to-device message. The
+            POSIX timestamp in milliseconds for when the request was made.
+
+    """
+
+    from_device: str = field()
+    methods: List[str] = field()
+    timestamp: int = field()
+
+
+@dataclass
 class KeyVerificationStartMixin:
     """Event signaling the start of a SAS key verification process.
 
