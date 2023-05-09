@@ -2041,7 +2041,7 @@ class Olm:
         )
         self.key_verifications[sas.transaction_id] = sas
 
-        return sas.start_verification()
+        return sas
 
     def get_active_sas(self, user_id: str, device_id: str) -> Optional[Sas]:
         """Find a non-canceled SAS verification object for the provided user.

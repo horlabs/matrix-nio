@@ -1373,7 +1373,8 @@ class Client:
         Returns a ``ToDeviceMessage`` that should be sent to to the homeserver.
         """
         assert self.olm
-        return self.olm.create_sas(device)
+        sas = self.olm.create_sas(device)
+        return sas.start_verification()
 
     @store_loaded
     def confirm_key_verification(self, transaction_id: str) -> ToDeviceMessage:

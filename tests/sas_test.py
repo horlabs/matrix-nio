@@ -677,7 +677,7 @@ class TestClass:
 
         start = {
             "sender": alice_device.user_id,
-            "content": olm_machine.create_sas(bob_device).content,
+            "content": olm_machine.create_sas(bob_device).start_verification().content,
         }
         start_event = KeyVerificationStart.from_dict(start)
 
@@ -810,7 +810,7 @@ class TestClass:
 
         start = {
             "sender": alice_device.user_id,
-            "content": olm_machine.create_sas(bob_device).content,
+            "content": olm_machine.create_sas(bob_device).start_verification().content,
         }
         start_event = KeyVerificationStart.from_dict(start)
 
@@ -842,7 +842,7 @@ class TestClass:
 
         start = {
             "sender": alice_device.user_id,
-            "content": olm_machine.create_sas(bob_device).content,
+            "content": olm_machine.create_sas(bob_device).start_verification().content,
         }
         start_event = KeyVerificationStart.from_dict(start)
 

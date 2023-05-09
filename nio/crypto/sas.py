@@ -415,6 +415,24 @@ class Sas(olm.Sas):
             int(x, 2) + 1000 for x in map("".join, list(self._grouper(number[:-1], 13)))
         )
 
+    def request_verification(self) -> ToDeviceMessage:
+        """Create a content dictionary to request the verification."""
+        content = {
+            "from_device": self.own_device,
+            "methods": self._sas_method_v1,
+            "transaction_id": self.transaction_id,
+            "timestamp": time_ns() // 1_000_000,
+        }
+
+        message = ToDeviceMessage(
+            "m.key.verification.request",
+            self.other_olm_device.user_id,
+            self.other_olm_device.id,
+            content,
+        )
+
+        return message
+
     def start_verification(self) -> ToDeviceMessage:
         """Create a content dictionary to start the verification."""
         if not self.we_started_it:
