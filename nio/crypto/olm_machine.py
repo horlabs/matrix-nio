@@ -2087,7 +2087,7 @@ class Olm:
         )
         self.key_verifications[sas.transaction_id] = sas
 
-        return sas.start_verification()
+        return sas
 
     def get_active_sas(self, user_id, device_id):
         # type: (str, str) -> Optional[Sas]
