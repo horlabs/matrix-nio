@@ -1799,6 +1799,33 @@ class Schemas:
         "required": ["avatar_url"],
     }
 
+    key_verification_ready = {
+        "type": "object",
+        "properties": {
+            "sender": {"type": "string"},
+            "content": {
+                "type": "object",
+                "properties": {
+                    "transaction_id": {"type": "string"},
+                    "from_device": {"type": "string"},
+                    "methods": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": [
+                    "transaction_id",
+                    "methods",
+                    "from_device",
+                ],
+            },
+        },
+        "required": [
+            "sender",
+            "content",
+        ],
+    }
+
     key_verification_request = {
         "type": "object",
         "properties": {
@@ -1964,6 +1991,23 @@ class Schemas:
                     "transaction_id",
                     "code",
                     "reason",
+                ],
+            },
+        },
+        "required": ["sender", "content"],
+    }
+
+    key_verification_done = {
+        "type": "object",
+        "properties": {
+            "sender": {"type": "string"},
+            "content": {
+                "type": "object",
+                "properties": {
+                    "transaction_id": {"type": "string"},
+                },
+                "required": [
+                    "transaction_id",
                 ],
             },
         },

@@ -54,6 +54,20 @@ class KeyVerificationRequestMixin:
 
 
 @dataclass
+class KeyVerificationReadyMixin:
+    """Event signaling the other device is ready to start the verification.
+
+    Attributes:
+        from_device (str): The device ID which is initiating the request.
+        methods (list): The verification methods supported by the sender.
+
+    """
+
+    from_device: str = field()
+    methods: List[str] = field()
+
+
+@dataclass
 class KeyVerificationStartMixin:
     """Event signaling the start of a SAS key verification process.
 
@@ -154,3 +168,8 @@ class KeyVerificationCancelMixin:
 
     code: str = field()
     reason: str = field()
+
+
+@dataclass
+class KeyVerificationDoneMixin:
+    """Event signaling the end of a key verification process."""

@@ -32,9 +32,11 @@ from ..schemas import Schemas
 from .common import (
     KeyVerificationAcceptMixin,
     KeyVerificationCancelMixin,
+    KeyVerificationDoneMixin,
     KeyVerificationEventMixin,
     KeyVerificationKeyMixin,
     KeyVerificationMacMixin,
+    KeyVerificationReadyMixin,
     KeyVerificationRequestMixin,
     KeyVerificationStartMixin,
 )
@@ -82,6 +84,8 @@ class ToDeviceEvent:
             return ToDeviceEvent.parse_encrypted_event(event_dict)
         elif event_dict["type"] == "m.key.verification.request":
             return KeyVerificationRequest.from_dict(event_dict)
+        elif event_dict["type"] == "m.key.verification.ready":
+            return KeyVerificationReady.from_dict(event_dict)
         elif event_dict["type"] == "m.key.verification.start":
             return KeyVerificationStart.from_dict(event_dict)
         elif event_dict["type"] == "m.key.verification.accept":
@@ -92,6 +96,8 @@ class ToDeviceEvent:
             return KeyVerificationMac.from_dict(event_dict)
         elif event_dict["type"] == "m.key.verification.cancel":
             return KeyVerificationCancel.from_dict(event_dict)
+        elif event_dict["type"] == "m.key.verification.done":
+            return KeyVerificationDone.from_dict(event_dict)
         elif event_dict["type"] == "m.room_key_request":
             return BaseRoomKeyRequest.parse_event(event_dict)
 
@@ -225,14 +231,35 @@ class KeyVerificationEvent(KeyVerificationEventMixin, ToDeviceEvent):
 
 
 @dataclass
+class KeyVerificationReady(KeyVerificationReadyMixin, KeyVerificationEvent):
+    """Event signaling the other device is ready to start the verification.
+
+    Attributes:
+        from_device (str): The device ID which is initiating the request.
+        methods (list): The verification methods supported by the sender.
+
+    """
+
+    @classmethod
+    @verify(Schemas.key_verification_ready)
+    def from_dict(cls, parsed_dict):
+        content = parsed_dict["content"]
+        return cls(
+            parsed_dict,
+            parsed_dict["sender"],
+            content["transaction_id"],
+            content["from_device"],
+            content["methods"],
+        )
+
+
+@dataclass
 class KeyVerificationRequest(KeyVerificationRequestMixin, KeyVerificationEvent):
     """Event requesting a key verification.
 
     Attributes:
         from_device (str): The device ID which is initiating the request.
         methods (list): The verification methods supported by the sender.
-        timestamp (int): Required when sent as a to-device message. The
-            POSIX timestamp in milliseconds for when the request was made.
 
     """
 
@@ -395,6 +422,28 @@ class KeyVerificationCancel(KeyVerificationCancelMixin, KeyVerificationEvent):
             content["transaction_id"],
             content["code"],
             content["reason"],
+        )
+
+
+@dataclass
+class KeyVerificationDone(KeyVerificationDoneMixin, KeyVerificationEvent):
+    """Event signaling the end of a key verification process.
+
+    Attributes:
+        code (str): The error code for why the process/request was canceled by
+            the user.
+        reason (str): A human readable description of the cancellation code.
+
+    """
+
+    @classmethod
+    @verify(Schemas.key_verification_done)
+    def from_dict(cls, parsed_dict):
+        content = parsed_dict["content"]
+        return cls(
+            parsed_dict,
+            parsed_dict["sender"],
+            content["transaction_id"],
         )
 
 

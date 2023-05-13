@@ -19,6 +19,7 @@ from enum import Enum
 from itertools import zip_longest
 from typing import List, Optional, Tuple
 from uuid import uuid4
+from time import time_ns
 
 import olm
 
@@ -196,7 +197,9 @@ class Sas(olm.Sas):
         self.chosen_key_agreement: Optional[str] = None
         self.state = SasState.created
         self.we_started_it = True
+        self.we_requested_it = False
         self.sas_accepted = False
+        self.sas_done = False
         self.commitment = None
         self.cancel_reason = ""
         self.cancel_code = ""
@@ -419,7 +422,7 @@ class Sas(olm.Sas):
         """Create a content dictionary to request the verification."""
         content = {
             "from_device": self.own_device,
-            "methods": self._sas_method_v1,
+            "methods": [self._sas_method_v1],
             "transaction_id": self.transaction_id,
             "timestamp": time_ns() // 1_000_000,
         }
@@ -430,6 +433,8 @@ class Sas(olm.Sas):
             self.other_olm_device.id,
             content,
         )
+
+        self.we_requested_it = True
 
         return message
 
@@ -507,6 +512,25 @@ class Sas(olm.Sas):
 
         message = ToDeviceMessage(
             "m.key.verification.accept",
+            self.other_olm_device.user_id,
+            self.other_olm_device.id,
+            content,
+        )
+
+        return message
+
+    def verification_done(self) -> ToDeviceMessage:
+        """Create a content dictionary to signal the end of verification."""
+        if self.state == SasState.canceled:
+            raise LocalProtocolError(
+                "SAS verification was canceled, "
+                "can't send start verification message."
+            )
+
+        content = {}
+
+        message = ToDeviceMessage(
+            "m.key.verification.done",
             self.other_olm_device.user_id,
             self.other_olm_device.id,
             content,
