@@ -1349,6 +1349,19 @@ class Client:
         self.presence_callbacks.append(cb)
 
     @store_loaded
+    def create_key_verification_request(self, device: OlmDevice) -> ToDeviceMessage:
+        """Request a new key verification process with the given device.
+
+        Args:
+            device (OlmDevice): The device which we would like to verify
+
+        Returns a ``ToDeviceMessage`` that should be sent to to the homeserver.
+        """
+        assert self.olm
+        sas = self.olm.create_sas(device)
+        return sas.request_verification()
+
+    @store_loaded
     def create_key_verification(self, device: OlmDevice) -> ToDeviceMessage:
         """Start a new key verification process with the given device.
 
@@ -1358,7 +1371,9 @@ class Client:
         Returns a ``ToDeviceMessage`` that should be sent to to the homeserver.
         """
         assert self.olm
-        sas = self.olm.create_sas(device)
+        sas = self.olm.get_active_sas(device.user_id, device.device_id)
+        if sas is None:
+            sas = self.olm.create_sas(device)
         return sas.start_verification()
 
     @store_loaded

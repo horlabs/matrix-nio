@@ -40,9 +40,11 @@ from ..events import (
     ForwardedRoomKeyEvent,
     KeyVerificationAccept,
     KeyVerificationCancel,
+    KeyVerificationDone,
     KeyVerificationEvent,
     KeyVerificationKey,
     KeyVerificationMac,
+    KeyVerificationReady,
     KeyVerificationStart,
     MegolmEvent,
     OlmEvent,
@@ -2144,7 +2146,7 @@ class Olm:
             else:
                 old_sas = self.get_active_sas(event.sender, event.from_device)
 
-                if old_sas:
+                if old_sas and not old_sas.we_requested_it:
                     logger.info(
                         "Found an active verification process for the "
                         "same user/device combination, "
@@ -2171,7 +2173,12 @@ class Olm:
                 )
                 return
 
-            if isinstance(event, KeyVerificationAccept):
+            if isinstance(event, KeyVerificationReady):
+                message = sas.start_verification()
+
+                self.outgoing_to_device_messages.append(message)
+
+            elif isinstance(event, KeyVerificationAccept):
                 sas.receive_accept_event(event)
 
                 if sas.canceled:
@@ -2232,3 +2239,22 @@ class Olm:
                     )
                     device = sas.other_olm_device
                     self.verify_device(device)
+
+                    sas.sas_done = True
+                    self.outgoing_to_device_messages.append(sas.verification_done())
+
+            elif isinstance(event, KeyVerificationDone):
+                sas = self.key_verifications.pop(event.transaction_id, None)
+
+                if sas.canceled:
+                    self.outgoing_to_device_messages.append(sas.get_cancellation())
+                    return
+
+                logger.info(
+                    f"Received a key verification done from {event.sender} "
+                    f"{sas.other_olm_device.id} {event.transaction_id}."
+                )
+
+                if sas.verified and not sas.sas_done:
+                    sas.sas_done = True
+                    self.outgoing_to_device_messages.append(sas.verification_done())
