@@ -1,0 +1,9 @@
+{
+    "content": {
+        "from_device": "BobDevice1",
+        "methods": ["m.sas.v1"],
+        "transaction_id": "S0meUniqueAndOpaqueString"
+    },
+    "type": "m.key.verification.ready",
+    "sender": "@bob:example.org"
+}

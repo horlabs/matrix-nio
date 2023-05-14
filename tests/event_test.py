@@ -25,8 +25,11 @@ from nio.events import (
     InviteNameEvent,
     KeyVerificationAccept,
     KeyVerificationCancel,
+    KeyVerificationDone,
     KeyVerificationKey,
     KeyVerificationMac,
+    KeyVerificationReady,
+    KeyVerificationRequest,
     KeyVerificationStart,
     MegolmEvent,
     OlmEvent,
@@ -416,11 +419,14 @@ class TestClass:
 
     def test_key_verification_events(self):
         for event_type, event_file in [
+            (KeyVerificationRequest, "key_request.json"),
+            (KeyVerificationReady, "key_ready.json"),
             (KeyVerificationStart, "key_start.json"),
             (KeyVerificationAccept, "key_accept.json"),
             (KeyVerificationKey, "key_key.json"),
             (KeyVerificationMac, "key_mac.json"),
             (KeyVerificationCancel, "key_cancel.json"),
+            (KeyVerificationDone, "key_done.json"),
         ]:
             parsed_dict = TestClass._load_response(f"tests/data/events/{event_file}")
             event = ToDeviceEvent.parse_event(parsed_dict)
@@ -428,11 +434,14 @@ class TestClass:
 
     def test_invalid_key_verification(self):
         for _, event_file in [
+            (KeyVerificationRequest, "key_request.json"),
+            (KeyVerificationReady, "key_ready.json"),
             (KeyVerificationStart, "key_start.json"),
             (KeyVerificationAccept, "key_accept.json"),
             (KeyVerificationKey, "key_key.json"),
             (KeyVerificationMac, "key_mac.json"),
             (KeyVerificationCancel, "key_cancel.json"),
+            (KeyVerificationDone, "key_done.json"),
         ]:
             parsed_dict = TestClass._load_response(f"tests/data/events/{event_file}")
             parsed_dict["content"].pop("transaction_id")

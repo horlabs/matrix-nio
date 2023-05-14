@@ -19,9 +19,9 @@ from __future__ import unicode_literals
 from builtins import bytes, super
 from datetime import datetime, timedelta
 from enum import Enum
+from time import time_ns
 from typing import List, Optional, Tuple
 from uuid import uuid4
-from time import time_ns
 
 import olm
 from future.moves.itertools import zip_longest

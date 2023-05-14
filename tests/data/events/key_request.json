@@ -1,0 +1,10 @@
+{
+    "content": {
+        "from_device": "BobDevice1",
+        "methods": ["m.sas.v1"],
+        "timestamp": 1590314157821,
+        "transaction_id": "S0meUniqueAndOpaqueString"
+    },
+    "type": "m.key.verification.request",
+    "sender": "@bob:example.org"
+}
