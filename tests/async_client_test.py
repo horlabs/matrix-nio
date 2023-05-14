@@ -21,6 +21,7 @@ from aiohttp import (
     TraceRequestChunkSentParams,
 )
 from aioresponses import CallbackResult, aioresponses
+from conftest import BOB_DEVICE_ID_2
 from helpers import faker
 from yarl import URL
 
@@ -3238,6 +3239,96 @@ class TestClass:
         decrypted_event = alice.decrypt_event(event)
         assert isinstance(decrypted_event, RoomMessageText)
         assert decrypted_event.body == "It's a secret to everybody."
+
+    async def test_key_verification_framework(self, async_client_pair, aioresponse):
+        alice, bob = async_client_pair
+
+        assert alice.logged_in
+        assert bob.logged_in
+
+        await alice.receive_response(
+            self.synce_response_for(alice.user_id, bob.user_id)
+        )
+        await bob.receive_response(self.synce_response_for(bob.user_id, alice.user_id))
+
+        alice_device = OlmDevice(
+            alice.user_id, alice.device_id, alice.olm.account.identity_keys
+        )
+        bob_device = OlmDevice(
+            bob.user_id, bob.device_id, bob.olm.account.identity_keys
+        )
+
+        bob_device_2 = OlmDevice(
+            bob.user_id, BOB_DEVICE_ID_2, bob.olm.account.identity_keys
+        )
+
+        alice.olm.device_store.add(bob_device)
+        alice.olm.device_store.add(bob_device_2)
+        bob.olm.device_store.add(alice_device)
+
+        alice_to_share = alice.olm.share_keys()
+        alice_one_time = list(alice_to_share["one_time_keys"].items())[0]
+
+        key_claim_dict = {
+            "one_time_keys": {
+                alice.user_id: {
+                    alice.device_id: {alice_one_time[0]: alice_one_time[1]},
+                },
+            },
+            "failures": {},
+        }
+
+        to_device_for_alice = None
+        to_device_for_bob = None
+
+        sync_url = re.compile(
+            r"^https://example\.org/_matrix/client/r0/sync\?access_token=.*"
+        )
+
+        bob_to_device_url = re.compile(
+            r"https://example\.org/_matrix/client/r0/sendToDevice/m\.(room|key)[a-z_\.]+/[0-9a-fA-f-]*\?access_token=bob_1234",
+        )
+
+        alice_to_device_url = re.compile(
+            r"https://example\.org/_matrix/client/r0/sendToDevice/m\.(room|key)[a-z_\.]+/[0-9a-fA-f-]*\?access_token=alice_1234",
+        )
+
+        def alice_to_device_cb(url, data, **kwargs):
+            nonlocal to_device_for_alice
+            to_device_for_alice = json.loads(data)
+            return CallbackResult(status=200, payload={})
+
+        def bob_to_device_cb(url, data, **kwargs):
+            nonlocal to_device_for_bob
+            to_device_for_bob = json.loads(data)
+            return CallbackResult(status=200, payload={})
+
+        aioresponse.post(
+            "https://example.org/_matrix/client/r0/keys/claim?access_token=bob_1234",
+            status=200,
+            payload=key_claim_dict,
+        )
+
+        aioresponse.put(bob_to_device_url, callback=alice_to_device_cb, repeat=True)
+        aioresponse.put(alice_to_device_url, callback=bob_to_device_cb, repeat=True)
+
+        session = alice.olm.session_store.get(bob_device.curve25519)
+        assert not session
+
+        # Share a group session for the room we're sharing with Alice.
+        # This implicitly claims one-time keys since we don't have an Olm
+        # session with Alice
+        with pytest.raises(OlmTrustError):
+            response = await bob.share_group_session(TEST_ROOM_ID)
+
+        to_device_for_alice = None
+
+        await bob.request_key_verification(alice_device)
+
+        assert to_device_for_alice
+
+        assert False
+
 
     async def test_sas_verification(self, async_client_pair, aioresponse):
         alice, bob = async_client_pair

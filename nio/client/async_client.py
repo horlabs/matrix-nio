@@ -1355,7 +1355,7 @@ class AsyncClient(Client):
 
     @logged_in_async
     @store_loaded
-    async def request_all_key_verification(self) -> None:
+    async def request_all_key_verification(self, user_id: str) -> None:
         # TODO: Return Error in some cases? Or just exceptions? How on other places in this lib?
         # TODO: Doc comment
         """Request a interactive key verification from every active device of this user.
@@ -1367,7 +1367,7 @@ class AsyncClient(Client):
             device (OlmDevice): An device with which we would like to start the
                 interactive key verification process.
         """
-        for device in self.device_store.active_user_devices(self.user_id):
+        for device in self.device_store.active_user_devices(user_id):
             message = self.create_key_verification_request(device)
             await self.request_key_verification(device)
 

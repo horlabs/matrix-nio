@@ -77,7 +77,10 @@ class ToDeviceEvent:
 
         """
         # A redacted event will have an empty content.
-        if not event_dict["content"] and event_dict["type"] != "m.key.verification.done":
+        if (
+            not event_dict["content"]
+            and event_dict["type"] != "m.key.verification.done"
+        ):
             return None
 
         if event_dict["type"] == "m.room.encrypted":

@@ -21,6 +21,7 @@ ALICE_DEVICE_ID = "JLAFKJWSCS"
 
 BOB_DEVICE = "@bob:example.org"
 BOB_DEVICE_ID = "JLAFKJWSRS"
+BOB_DEVICE_ID_2 = "JLAFKJWSTS"
 
 
 @pytest.fixture
