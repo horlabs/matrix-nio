@@ -17,9 +17,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from enum import Enum
 from itertools import zip_longest
+from time import time_ns
 from typing import List, Optional, Tuple
 from uuid import uuid4
-from time import time_ns
 
 import olm
 

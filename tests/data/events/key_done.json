@@ -1,0 +1,7 @@
+{
+    "content": {
+        "transaction_id": "S0meUniqueAndOpaqueString"
+    },
+    "type": "m.key.verification.done",
+    "sender": "@bob:example.org"
+}
