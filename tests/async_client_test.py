@@ -3321,14 +3321,36 @@ class TestClass:
         with pytest.raises(OlmTrustError):
             response = await bob.share_group_session(TEST_ROOM_ID)
 
-        to_device_for_alice = None
+        to_device_for_bob = None
 
-        await bob.request_key_verification(alice_device)
+        await alice.request_key_verification(bob_device)
+
+        assert to_device_for_bob
+
+        aioresponse.get(
+            sync_url,
+            status=200,
+            payload=self.sync_with_to_device_events(
+                self.olm_message_to_event(
+                    to_device_for_bob, bob, alice, "m.key.verification.request"
+                ),
+                "4",
+            ),
+        )
+
+        assert not bob.key_verification_requests
+        await bob.sync()
+        assert bob.key_verification_requests
+
+        # TODO: Second device, request all (or different testcase?)
+
+        assert not to_device_for_alice
+
+        await bob.accept_key_verification_request(
+            list(bob.key_verification_requests.keys())[0]
+        )
 
         assert to_device_for_alice
-
-        assert False
-
 
     async def test_sas_verification(self, async_client_pair, aioresponse):
         alice, bob = async_client_pair

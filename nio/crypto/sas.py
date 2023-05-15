@@ -197,7 +197,7 @@ class Sas(olm.Sas):
         self.chosen_key_agreement: Optional[str] = None
         self.state = SasState.created
         self.we_started_it = True
-        self.we_requested_it = False
+        self.requested = False
         self.sas_accepted = False
         self.sas_done = False
         self.commitment = None
@@ -417,26 +417,6 @@ class Sas(olm.Sas):
         return tuple(
             int(x, 2) + 1000 for x in map("".join, list(self._grouper(number[:-1], 13)))
         )
-
-    def request_verification(self) -> ToDeviceMessage:
-        """Create a content dictionary to request the verification."""
-        content = {
-            "from_device": self.own_device,
-            "methods": [self._sas_method_v1],
-            "transaction_id": self.transaction_id,
-            "timestamp": time_ns() // 1_000_000,
-        }
-
-        message = ToDeviceMessage(
-            "m.key.verification.request",
-            self.other_olm_device.user_id,
-            self.other_olm_device.id,
-            content,
-        )
-
-        self.we_requested_it = True
-
-        return message
 
     def start_verification(self) -> ToDeviceMessage:
         """Create a content dictionary to start the verification."""

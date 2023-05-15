@@ -42,6 +42,7 @@ from ..events import (
     KeyVerificationKey,
     KeyVerificationMac,
     KeyVerificationReady,
+    KeyVerificationRequest,
     KeyVerificationStart,
     MegolmEvent,
     OlmEvent,
@@ -210,6 +211,10 @@ class Olm:
         self.key_re_requests_events: DefaultDict[Tuple[str, str], List[MegolmEvent]] = (
             defaultdict(list)
         )
+
+        # A mapping from a transaction id to a Olm device object. The
+        # transaction id uniquely identifies the key verification request.
+        self.key_verification_requests = dict()  # type: Dict[str, OlmDevice]
 
         # A mapping from a transaction id to a Sas key verification object. The
         # transaction id uniquely identifies the key verification session.
@@ -2067,7 +2072,21 @@ class Olm:
 
     def handle_key_verification(self, event: KeyVerificationEvent) -> None:
         """Receive key verification events."""
-        if isinstance(event, KeyVerificationStart):
+        if isinstance(event, KeyVerificationRequest):
+            logger.info(
+                f"Received key verification start event from {event.sender} {event.from_device} {event.transaction_id}"
+            )
+            try:
+                device = self.device_store[event.sender][event.from_device]
+            except KeyError:
+                logger.warn(
+                    f"Received key verification event from unknown device: {event.sender} {event.from_device}"
+                )
+                self.users_for_key_query.add(event.sender)
+                return
+
+            self.key_verification_requests[event.transaction_id] = device
+        elif isinstance(event, KeyVerificationStart):
             logger.info(
                 f"Received key verification start event from {event.sender} {event.from_device} {event.transaction_id}"
             )
@@ -2098,7 +2117,7 @@ class Olm:
             else:
                 old_sas = self.get_active_sas(event.sender, event.from_device)
 
-                if old_sas and not old_sas.we_requested_it:
+                if old_sas and not old_sas.requested:  #  TODO: Remove second condition?
                     logger.info(
                         "Found an active verification process for the "
                         "same user/device combination, "

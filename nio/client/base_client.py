@@ -19,6 +19,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import wraps
+from time import time_ns
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -33,8 +34,10 @@ from typing import (
     Type,
     Union,
 )
+from uuid import uuid4
 
 from ..crypto import ENCRYPTION_ENABLED, DeviceStore, OutgoingKeyRequest
+from ..crypto.sas import Sas
 from ..events import (
     AccountDataEvent,
     BadEvent,
@@ -321,6 +324,12 @@ class Client:
     def key_verifications(self) -> Dict[str, Sas]:
         """Key verifications that the client is participating in."""
         return self.olm.key_verifications if self.olm else {}
+
+    @property
+    def key_verification_requests(self):
+        # type () -> Dict[str, Sas]
+        """Key verification requests that the client received."""
+        return self.olm.key_verification_requests if self.olm else dict()
 
     @property
     def outgoing_to_device_messages(self) -> List[ToDeviceMessage]:
@@ -1372,9 +1381,55 @@ class Client:
 
         Returns a ``ToDeviceMessage`` that should be sent to to the homeserver.
         """
-        assert self.olm
-        sas = self.olm.create_sas(device)
-        return sas.request_verification()
+        content = {
+            "from_device": self.device_id,
+            "methods": [Sas._sas_method_v1],
+            "transaction_id": str(uuid4()),
+            "timestamp": time_ns() // 1_000_000,
+        }
+
+        message = ToDeviceMessage(
+            "m.key.verification.request",
+            device.user_id,
+            device.id,
+            content,
+        )
+
+        return message
+
+    @store_loaded
+    def accept_key_verification_request_message(
+        self, transaction_id: str
+    ) -> ToDeviceMessage:
+        """Accept a key verification request.
+
+        Args:
+            transaction_id (str): The transaction id of the interactive key
+                verification.
+
+        Returns a ``ToDeviceMessage`` that should be sent to to the homeserver.
+        """
+        if transaction_id not in self.key_verification_requests:
+            raise LocalProtocolError(
+                f"Key verification with the transaction id {transaction_id} does not exist."
+            )
+
+        other_device = self.key_verification_requests[transaction_id]
+
+        content = {
+            "from_device": self.device_id,
+            "methods": [Sas._sas_method_v1],
+            "transaction_id": transaction_id,
+        }
+
+        message = ToDeviceMessage(
+            "m.key.verification.ready",
+            other_device.user_id,
+            other_device.id,
+            content,
+        )
+
+        return message
 
     @store_loaded
     def create_key_verification(self, device: OlmDevice) -> ToDeviceMessage:
