@@ -68,6 +68,60 @@ async def async_client_pair(tempdir) -> Tuple[AsyncClient, AsyncClient]:
 
 
 @pytest_asyncio.fixture
+async def async_client_pair_three_devices(tempdir):
+    ALICE_ID = "@alice:example.org"
+    ALICE_DEVICE = "JLAFKJWSCS"
+
+    BOB_ID = "@bob:example.org"
+    BOB_DEVICE = "ASDFOEAK"
+    BOB_SECOND_DEVICE = "QWEROLPZ"
+
+    config = AsyncClientConfig(max_timeouts=3)
+    alice = AsyncClient(
+        "https://example.org",
+        ALICE_ID,
+        ALICE_DEVICE,
+        tempdir,
+        config=config,
+    )
+    bob = AsyncClient(
+        "https://example.org",
+        BOB_ID,
+        BOB_DEVICE,
+        tempdir,
+        config=config,
+    )
+    bob_second = AsyncClient(
+        "https://example.org",
+        BOB_ID,
+        BOB_SECOND_DEVICE,
+        tempdir,
+        config=config,
+    )
+
+    await alice.receive_response(LoginResponse(ALICE_ID, ALICE_DEVICE, "alice_1234"))
+    await bob.receive_response(LoginResponse(BOB_ID, BOB_DEVICE, "bob_1234"))
+    await bob_second.receive_response(
+        LoginResponse(BOB_ID, BOB_SECOND_DEVICE, "bob_1234")
+    )
+    bob_device = OlmDevice(bob.user_id, bob.device_id, bob.olm.account.identity_keys)
+    bob_second_device = OlmDevice(
+        bob_second.user_id, bob_second.device_id, bob_second.olm.account.identity_keys
+    )
+
+    bob.olm.device_store.add(bob_second_device)
+    bob_second.olm.device_store.add(bob_device)
+    bob.verify_device(bob_second_device)
+    bob_second.verify_device(bob_device)
+
+    yield (alice, bob, bob_second)
+
+    await alice.close()
+    await bob.close()
+    await bob_second.close()
+
+
+@pytest_asyncio.fixture
 async def async_client_pair_same_user(tempdir) -> Tuple[AsyncClient, AsyncClient]:
     ALICE_ID = "@alice:example.org"
     FIRST_DEVICE = "JLAFKJWSCS"

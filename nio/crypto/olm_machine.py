@@ -213,8 +213,10 @@ class Olm:
         )
 
         # A mapping from a transaction id to a Olm device object. The
-        # transaction id uniquely identifies the key verification request.
-        self.key_verification_requests = dict()  # type: Dict[str, OlmDevice]
+        # transaction id identifies the key verification request.
+        self.key_verification_requests = defaultdict(
+            list
+        )  # type: DefaultDict[str, List[OlmDevice]]
 
         # A mapping from a transaction id to a Sas key verification object. The
         # transaction id uniquely identifies the key verification session.
@@ -2072,6 +2074,9 @@ class Olm:
 
     def handle_key_verification(self, event: KeyVerificationEvent) -> None:
         """Receive key verification events."""
+        import rich
+
+        rich.print(locals())
         if isinstance(event, KeyVerificationRequest):
             logger.info(
                 f"Received key verification start event from {event.sender} {event.from_device} {event.transaction_id}"
@@ -2085,7 +2090,61 @@ class Olm:
                 self.users_for_key_query.add(event.sender)
                 return
 
-            self.key_verification_requests[event.transaction_id] = device
+            self.key_verification_requests[event.transaction_id] = [device]
+        elif isinstance(event, KeyVerificationReady):
+            logger.info(
+                f"Received key verification ready event from {event.sender} {event.from_device} {event.transaction_id}"
+            )
+            try:
+                device = self.device_store[event.sender][event.from_device]
+            except KeyError:
+                logger.warn(
+                    f"Received key verification event from unknown device: {event.sender} {event.from_device}"
+                )
+                self.users_for_key_query.add(event.sender)
+                return
+
+            if device not in self.key_verification_requests[event.transaction_id]:
+                logger.warn(
+                    f"Received key verification event from unknown device: {event.sender} {event.from_device}"
+                )
+                self.users_for_key_query.add(event.sender)
+                return
+
+            for requested_device in self.key_verification_requests[
+                event.transaction_id
+            ]:
+                if requested_device == device:
+                    continue
+
+                content = {
+                    "code": "m.accepted",
+                    "reason": "Key verification request was accepted by a different device.",
+                    "transaction_id": event.transaction_id,
+                }
+
+                message = ToDeviceMessage(
+                    "m.key.verification.cancel",
+                    requested_device.user_id,
+                    requested_device.id,
+                    content,
+                )
+
+                self.outgoing_to_device_messages.append(message)
+
+            self.key_verification_requests[event.transaction_id] = [device]
+
+        elif (
+            isinstance(event, KeyVerificationCancel)
+            and event.transaction_id in self.key_verification_requests
+            and len(self.key_verification_requests[event.transaction_id]) == 1
+        ):
+            logger.info(
+                f"Received a key verification cancellation from {event.sender} "
+                f"{self.key_verification_requests[event.transaction_id][0].id}. Canceling verification {event.transaction_id}."
+            )
+            del self.key_verification_requests[event.transaction_id]
+
         elif isinstance(event, KeyVerificationStart):
             logger.info(
                 f"Received key verification start event from {event.sender} {event.from_device} {event.transaction_id}"
@@ -2143,11 +2202,6 @@ class Olm:
                     f"transaction id from {event.sender}"
                 )
                 return
-
-            if isinstance(event, KeyVerificationReady):
-                message = sas.start_verification()
-
-                self.outgoing_to_device_messages.append(message)
 
             elif isinstance(event, KeyVerificationAccept):
                 sas.receive_accept_event(event)

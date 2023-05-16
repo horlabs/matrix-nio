@@ -3240,11 +3240,14 @@ class TestClass:
         assert isinstance(decrypted_event, RoomMessageText)
         assert decrypted_event.body == "It's a secret to everybody."
 
-    async def test_key_verification_framework(self, async_client_pair, aioresponse):
-        alice, bob = async_client_pair
+    async def test_key_verification_framework(
+        self, async_client_pair_three_devices, aioresponse
+    ):
+        alice, bob, bob_second = async_client_pair_three_devices
 
         assert alice.logged_in
         assert bob.logged_in
+        assert bob_second.logged_in
 
         await alice.receive_response(
             self.synce_response_for(alice.user_id, bob.user_id)
@@ -3258,13 +3261,16 @@ class TestClass:
             bob.user_id, bob.device_id, bob.olm.account.identity_keys
         )
 
-        bob_device_2 = OlmDevice(
-            bob.user_id, BOB_DEVICE_ID_2, bob.olm.account.identity_keys
+        bob_second_device = OlmDevice(
+            bob_second.user_id,
+            bob_second.device_id,
+            bob_second.olm.account.identity_keys,
         )
 
         alice.olm.device_store.add(bob_device)
-        alice.olm.device_store.add(bob_device_2)
+        alice.olm.device_store.add(bob_second_device)
         bob.olm.device_store.add(alice_device)
+        bob_second.olm.device_store.add(alice_device)
 
         alice_to_share = alice.olm.share_keys()
         alice_one_time = list(alice_to_share["one_time_keys"].items())[0]
@@ -3279,7 +3285,7 @@ class TestClass:
         }
 
         to_device_for_alice = None
-        to_device_for_bob = None
+        to_device_for_bob = []
 
         sync_url = re.compile(
             r"^https://example\.org/_matrix/client/r0/sync\?access_token=.*"
@@ -3300,7 +3306,8 @@ class TestClass:
 
         def bob_to_device_cb(url, data, **kwargs):
             nonlocal to_device_for_bob
-            to_device_for_bob = json.loads(data)
+            to_device_for_bob.append(json.loads(data))
+            print("cb", to_device_for_bob)
             return CallbackResult(status=200, payload={})
 
         aioresponse.post(
@@ -3321,25 +3328,36 @@ class TestClass:
         with pytest.raises(OlmTrustError):
             response = await bob.share_group_session(TEST_ROOM_ID)
 
-        to_device_for_bob = None
+        to_device_for_bob.clear()
 
-        await alice.request_key_verification(bob_device)
+        assert len(alice.olm.key_verification_requests) == 0
+        await alice.request_all_key_verification(bob.user_id)
+        assert len(alice.olm.key_verification_requests) == 1
+        transaction_id = list(alice.olm.key_verification_requests.keys())[0]
+        assert len(alice.olm.key_verification_requests[transaction_id]) == 2
 
-        assert to_device_for_bob
+        assert len(to_device_for_bob) == 2
 
-        aioresponse.get(
-            sync_url,
-            status=200,
-            payload=self.sync_with_to_device_events(
-                self.olm_message_to_event(
-                    to_device_for_bob, bob, alice, "m.key.verification.request"
+        for message in to_device_for_bob:
+            receiver = list(message["messages"]["@bob:example.org"].keys())[0]
+            aioresponse.get(
+                sync_url,
+                status=200,
+                payload=self.sync_with_to_device_events(
+                    self.olm_message_to_event(
+                        message,
+                        bob if receiver == bob.device_id else bob_second,
+                        alice,
+                        "m.key.verification.request",
+                    ),
+                    "4",
                 ),
-                "4",
-            ),
-        )
+            )
+        to_device_for_bob.clear()
 
         assert not bob.key_verification_requests
         await bob.sync()
+        await bob_second.sync()
         assert bob.key_verification_requests
 
         # TODO: Second device, request all (or different testcase?)
@@ -3351,6 +3369,42 @@ class TestClass:
         )
 
         assert to_device_for_alice
+
+        aioresponse.get(
+            sync_url,
+            status=200,
+            payload=self.sync_with_to_device_events(
+                self.olm_message_to_event(
+                    to_device_for_alice, alice, bob, "m.key.verification.ready"
+                ),
+                "5",
+            ),
+        )
+
+        await alice.sync()
+        await alice.send_to_device_messages()
+
+        assert len(alice.olm.key_verification_requests[transaction_id]) == 1
+
+        assert len(to_device_for_bob) == 1
+        aioresponse.get(
+            sync_url,
+            status=200,
+            payload=self.sync_with_to_device_events(
+                self.olm_message_to_event(
+                    to_device_for_bob[0], bob_second, alice, "m.key.verification.cancel"
+                ),
+                "5",
+            ),
+        )
+        to_device_for_bob.clear()
+
+        assert len(bob_second.olm.key_verification_requests) == 1
+
+        await bob_second.sync()
+        print(bob_second.olm.key_verification_requests)
+
+        assert len(bob_second.olm.key_verification_requests) == 0
 
     async def test_sas_verification(self, async_client_pair, aioresponse):
         alice, bob = async_client_pair

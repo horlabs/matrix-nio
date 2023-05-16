@@ -9,6 +9,7 @@ from conftest_async import (  # noqa: F401
     async_client_pair,
     async_client_pair_same_user,
     unauthed_async_client,
+    async_client_pair_three_devices,
 )
 from olm import Account
 

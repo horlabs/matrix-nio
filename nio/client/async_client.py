@@ -1367,14 +1367,17 @@ class AsyncClient(Client):
             device (OlmDevice): An device with which we would like to start the
                 interactive key verification process.
         """
+        transaction_id = str(uuid4())
         for device in self.device_store.active_user_devices(user_id):
-            message = self.create_key_verification_request(device)
-            await self.request_key_verification(device)
+            await self.request_key_verification(device, transaction_id)
 
     @logged_in_async
     @store_loaded
     async def request_key_verification(
-        self, device: OlmDevice, tx_id: Optional[str] = None
+        self,
+        device: OlmDevice,
+        transaction_id: Optional[str] = None,
+        tx_id: Optional[str] = None,
     ) -> None:
         # TODO: Return Error in some cases? Or just exceptions? How on other places in this lib?
         # TODO: Doc comment
@@ -1387,7 +1390,7 @@ class AsyncClient(Client):
             device (OlmDevice): An device with which we would like to start the
                 interactive key verification process.
         """
-        message = self.create_key_verification_request(device)
+        message = self.create_key_verification_request(device, transaction_id)
         return await self.to_device(message)
 
     @logged_in_async

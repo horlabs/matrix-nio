@@ -327,9 +327,9 @@ class Client:
 
     @property
     def key_verification_requests(self):
-        # type () -> Dict[str, Sas]
+        # type () -> Dict[str, List[OlmDevice]]
         """Key verification requests that the client received."""
-        return self.olm.key_verification_requests if self.olm else dict()
+        return self.olm.key_verification_requests if self.olm else defaultdict(list)
 
     @property
     def outgoing_to_device_messages(self) -> List[ToDeviceMessage]:
@@ -1373,7 +1373,9 @@ class Client:
         self.presence_callbacks.append(cb)
 
     @store_loaded
-    def create_key_verification_request(self, device: OlmDevice) -> ToDeviceMessage:
+    def create_key_verification_request(
+        self, device: OlmDevice, transaction_id: Optional[str] = None
+    ) -> ToDeviceMessage:
         """Request a new key verification process with the given device.
 
         Args:
@@ -1381,10 +1383,13 @@ class Client:
 
         Returns a ``ToDeviceMessage`` that should be sent to to the homeserver.
         """
+        if transaction_id is None:
+            transaction_id = str(uuid4())
+
         content = {
             "from_device": self.device_id,
             "methods": [Sas._sas_method_v1],
-            "transaction_id": str(uuid4()),
+            "transaction_id": transaction_id,
             "timestamp": time_ns() // 1_000_000,
         }
 
@@ -1394,6 +1399,8 @@ class Client:
             device.id,
             content,
         )
+
+        self.key_verification_requests[content["transaction_id"]].append(device)
 
         return message
 
@@ -1414,7 +1421,9 @@ class Client:
                 f"Key verification with the transaction id {transaction_id} does not exist."
             )
 
-        other_device = self.key_verification_requests[transaction_id]
+        assert len(self.key_verification_requests[transaction_id]) == 1
+
+        other_device = self.key_verification_requests[transaction_id][0]
 
         content = {
             "from_device": self.device_id,
@@ -1441,9 +1450,7 @@ class Client:
         Returns a ``ToDeviceMessage`` that should be sent to to the homeserver.
         """
         assert self.olm
-        sas = self.olm.get_active_sas(device.user_id, device.device_id)
-        if sas is None:
-            sas = self.olm.create_sas(device)
+        sas = self.olm.create_sas(device)
         return sas.start_verification()
 
     @store_loaded
