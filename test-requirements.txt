@@ -24,4 +24,3 @@ aiofiles
 jsonschema
 h2
 h11
-rich

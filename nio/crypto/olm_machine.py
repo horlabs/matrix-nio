@@ -2074,9 +2074,6 @@ class Olm:
 
     def handle_key_verification(self, event: KeyVerificationEvent) -> None:
         """Receive key verification events."""
-        import rich
-
-        rich.print(locals())
         if isinstance(event, KeyVerificationRequest):
             logger.info(
                 f"Received key verification start event from {event.sender} {event.from_device} {event.transaction_id}"
@@ -2170,6 +2167,8 @@ class Olm:
                 logger.warning(
                     f"Received malformed key verification event from {event.sender} {event.from_device}"
                 )
+                if event.transaction_id in self.key_verification_requests:
+                    del self.key_verification_requests[event.transaction_id]
                 message = new_sas.get_cancellation()
                 self.outgoing_to_device_messages.append(message)
 
@@ -2226,6 +2225,8 @@ class Olm:
 
                 if sas:
                     sas.cancel()
+                if event.transaction_id in self.key_verification_requests:
+                    del self.key_verification_requests[event.transaction_id]
 
             elif isinstance(event, KeyVerificationKey):
                 sas.receive_key_event(event)
@@ -2233,6 +2234,8 @@ class Olm:
 
                 if sas.canceled:
                     to_device_message = sas.get_cancellation()
+                    if event.transaction_id in self.key_verification_requests:
+                        del self.key_verification_requests[event.transaction_id]
                 else:
                     logger.info(
                         f"Received a key verification pubkey from {event.sender} "
@@ -2250,6 +2253,8 @@ class Olm:
 
                 if sas.canceled:
                     self.outgoing_to_device_messages.append(sas.get_cancellation())
+                    if event.transaction_id in self.key_verification_requests:
+                        del self.key_verification_requests[event.transaction_id]
                     return
 
                 logger.info(
@@ -2265,14 +2270,24 @@ class Olm:
                     device = sas.other_olm_device
                     self.verify_device(device)
 
-                    sas.sas_done = True
-                    self.outgoing_to_device_messages.append(sas.verification_done())
+                    if event.transaction_id in self.key_verification_requests:
+                        del self.key_verification_requests[event.transaction_id]
+                        self.outgoing_to_device_messages.append(
+                            ToDeviceMessage(
+                                "m.key.verification.done",
+                                device.user_id,
+                                device.id,
+                                {},
+                            )
+                        )
 
             elif isinstance(event, KeyVerificationDone):
                 sas = self.key_verifications.pop(event.transaction_id, None)
 
                 if sas.canceled:
                     self.outgoing_to_device_messages.append(sas.get_cancellation())
+                    if event.transaction_id in self.key_verification_requests:
+                        del self.key_verification_requests[event.transaction_id]
                     return
 
                 logger.info(
@@ -2280,6 +2295,18 @@ class Olm:
                     f"{sas.other_olm_device.id} {event.transaction_id}."
                 )
 
-                if sas.verified and not sas.sas_done:
-                    sas.sas_done = True
-                    self.outgoing_to_device_messages.append(sas.verification_done())
+                if (
+                    sas.verified
+                    and event.transaction_id in self.key_verification_requests
+                ):
+                    device = sas.other_olm_device
+
+                    del self.key_verification_requests[event.transaction_id]
+                    self.outgoing_to_device_messages.append(
+                        ToDeviceMessage(
+                            "m.key.verification.done",
+                            device.user_id,
+                            device.id,
+                            {},
+                        )
+                    )

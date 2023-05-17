@@ -199,7 +199,6 @@ class Sas(olm.Sas):
         self.we_started_it = True
         self.requested = False
         self.sas_accepted = False
-        self.sas_done = False
         self.commitment = None
         self.cancel_reason = ""
         self.cancel_code = ""
