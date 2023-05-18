@@ -498,25 +498,6 @@ class Sas(olm.Sas):
 
         return message
 
-    def verification_done(self) -> ToDeviceMessage:
-        """Create a content dictionary to signal the end of verification."""
-        if self.state == SasState.canceled:
-            raise LocalProtocolError(
-                "SAS verification was canceled, "
-                "can't send start verification message."
-            )
-
-        content = {}
-
-        message = ToDeviceMessage(
-            "m.key.verification.done",
-            self.other_olm_device.user_id,
-            self.other_olm_device.id,
-            content,
-        )
-
-        return message
-
     def share_key(self) -> ToDeviceMessage:
         """Create a dictionary containing our public key."""
         if self.state == SasState.canceled:

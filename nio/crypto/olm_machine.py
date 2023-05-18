@@ -83,6 +83,7 @@ from . import (
     logger,
 )
 from .key_export import decrypt_and_read, encrypt_and_save
+from .key_verification_framework import KeyVerificationFramework as KVF
 from .sas import Sas
 
 DecryptedOlmT = Union[RoomKeyEvent, BadEvent, UnknownBadEvent, None]
@@ -214,9 +215,7 @@ class Olm:
 
         # A mapping from a transaction id to a Olm device object. The
         # transaction id identifies the key verification request.
-        self.key_verification_requests = defaultdict(
-            list
-        )  # type: DefaultDict[str, List[OlmDevice]]
+        self.key_verification_requests = dict()  # type: DefaultDict[str, KVF]
 
         # A mapping from a transaction id to a Sas key verification object. The
         # transaction id uniquely identifies the key verification session.
@@ -2087,7 +2086,11 @@ class Olm:
                 self.users_for_key_query.add(event.sender)
                 return
 
-            self.key_verification_requests[event.transaction_id] = [device]
+            self.key_verification_requests[
+                event.transaction_id
+            ] = KVF.from_key_verification_request(
+                self.device_id, event.transaction_id, device
+            )
         elif isinstance(event, KeyVerificationReady):
             logger.info(
                 f"Received key verification ready event from {event.sender} {event.from_device} {event.transaction_id}"
@@ -2101,46 +2104,24 @@ class Olm:
                 self.users_for_key_query.add(event.sender)
                 return
 
-            if device not in self.key_verification_requests[event.transaction_id]:
-                logger.warn(
-                    f"Received key verification event from unknown device: {event.sender} {event.from_device}"
-                )
-                self.users_for_key_query.add(event.sender)
-                return
+            kvf = self.key_verification_requests[event.transaction_id]
+            messages = kvf.verification_request_accepted(device)
 
-            for requested_device in self.key_verification_requests[
-                event.transaction_id
-            ]:
-                if requested_device == device:
-                    continue
-
-                content = {
-                    "code": "m.accepted",
-                    "reason": "Key verification request was accepted by a different device.",
-                    "transaction_id": event.transaction_id,
-                }
-
-                message = ToDeviceMessage(
-                    "m.key.verification.cancel",
-                    requested_device.user_id,
-                    requested_device.id,
-                    content,
-                )
-
-                self.outgoing_to_device_messages.append(message)
-
-            self.key_verification_requests[event.transaction_id] = [device]
+            self.outgoing_to_device_messages.extend(messages)
 
         elif (
             isinstance(event, KeyVerificationCancel)
             and event.transaction_id in self.key_verification_requests
-            and len(self.key_verification_requests[event.transaction_id]) == 1
         ):
             logger.info(
-                f"Received a key verification cancellation from {event.sender} "
-                f"{self.key_verification_requests[event.transaction_id][0].id}. Canceling verification {event.transaction_id}."
+                f"Received a key verification cancellation from {event.sender}. "
+                f"Canceling verification {event.transaction_id}."
             )
-            del self.key_verification_requests[event.transaction_id]
+
+            kvf = self.key_verification_requests[event.transaction_id]
+            messages = kvf.process_cancellation()
+
+            self.outgoing_to_device_messages.extend(messages)
 
         elif isinstance(event, KeyVerificationStart):
             logger.info(
@@ -2167,8 +2148,6 @@ class Olm:
                 logger.warning(
                     f"Received malformed key verification event from {event.sender} {event.from_device}"
                 )
-                if event.transaction_id in self.key_verification_requests:
-                    del self.key_verification_requests[event.transaction_id]
                 message = new_sas.get_cancellation()
                 self.outgoing_to_device_messages.append(message)
 
@@ -2225,8 +2204,6 @@ class Olm:
 
                 if sas:
                     sas.cancel()
-                if event.transaction_id in self.key_verification_requests:
-                    del self.key_verification_requests[event.transaction_id]
 
             elif isinstance(event, KeyVerificationKey):
                 sas.receive_key_event(event)
@@ -2234,8 +2211,6 @@ class Olm:
 
                 if sas.canceled:
                     to_device_message = sas.get_cancellation()
-                    if event.transaction_id in self.key_verification_requests:
-                        del self.key_verification_requests[event.transaction_id]
                 else:
                     logger.info(
                         f"Received a key verification pubkey from {event.sender} "
@@ -2253,8 +2228,6 @@ class Olm:
 
                 if sas.canceled:
                     self.outgoing_to_device_messages.append(sas.get_cancellation())
-                    if event.transaction_id in self.key_verification_requests:
-                        del self.key_verification_requests[event.transaction_id]
                     return
 
                 logger.info(
@@ -2271,7 +2244,6 @@ class Olm:
                     self.verify_device(device)
 
                     if event.transaction_id in self.key_verification_requests:
-                        del self.key_verification_requests[event.transaction_id]
                         self.outgoing_to_device_messages.append(
                             ToDeviceMessage(
                                 "m.key.verification.done",
@@ -2286,8 +2258,6 @@ class Olm:
 
                 if sas.canceled:
                     self.outgoing_to_device_messages.append(sas.get_cancellation())
-                    if event.transaction_id in self.key_verification_requests:
-                        del self.key_verification_requests[event.transaction_id]
                     return
 
                 logger.info(
@@ -2301,7 +2271,6 @@ class Olm:
                 ):
                     device = sas.other_olm_device
 
-                    del self.key_verification_requests[event.transaction_id]
                     self.outgoing_to_device_messages.append(
                         ToDeviceMessage(
                             "m.key.verification.done",

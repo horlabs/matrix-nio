@@ -1391,7 +1391,7 @@ class AsyncClient(Client):
                 interactive key verification process.
         """
         message = self.create_key_verification_request(device, transaction_id)
-        return await self.to_device(message)
+        return await self.to_device(message, tx_id)
 
     @logged_in_async
     @store_loaded
@@ -1409,8 +1409,15 @@ class AsyncClient(Client):
             device (OlmDevice): An device with which we would like to start the
                 interactive key verification process.
         """
-        message = self.accept_key_verification_request_message(transaction_id)
-        return await self.to_device(message)
+        if transaction_id not in self.key_verification_requests:
+            raise LocalProtocolError(
+                f"Key verification request with the transaction id {transaction_id} does not exist."
+            )
+
+        kvf = self.key_verification_requests[transaction_id]
+
+        message = kvf.accept_verification_request()
+        return await self.to_device(message, tx_id)
 
     @logged_in_async
     @store_loaded

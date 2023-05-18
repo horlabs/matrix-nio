@@ -21,7 +21,6 @@ from aiohttp import (
     TraceRequestChunkSentParams,
 )
 from aioresponses import CallbackResult, aioresponses
-from conftest import BOB_DEVICE_ID_2
 from helpers import faker
 from yarl import URL
 
@@ -142,6 +141,7 @@ from nio.api import (
 )
 from nio.client.async_client import connect_wrapper, on_request_chunk_sent
 from nio.crypto import OlmDevice, Session, decrypt_attachment
+from nio.crypto.key_verification_framework import KVFState
 
 BASE_URL_V1 = f"https://example.org{MATRIX_API_PATH_V1}"
 BASE_URL_V3 = f"https://example.org{MATRIX_API_PATH_V3}"
@@ -3334,7 +3334,9 @@ class TestClass:
         await alice.request_all_key_verification(bob.user_id)
         assert len(alice.olm.key_verification_requests) == 1
         transaction_id = list(alice.olm.key_verification_requests.keys())[0]
-        assert len(alice.olm.key_verification_requests[transaction_id]) == 2
+        alice_kvf = alice.olm.key_verification_requests[transaction_id]
+        assert alice_kvf.state == KVFState.REQUESTED
+        assert len(alice_kvf.devices) == 2
 
         assert len(to_device_for_bob) == 2
 
@@ -3355,12 +3357,13 @@ class TestClass:
             )
         to_device_for_bob.clear()
 
-        assert not bob.key_verification_requests
+        assert not bob.key_verification_requests  # TODO
         await bob.sync()
         await bob_second.sync()
-        assert bob.key_verification_requests
-
-        # TODO: Second device, request all (or different testcase?)
+        bob_kvf = bob.olm.key_verification_requests[transaction_id]
+        assert bob_kvf.state == KVFState.REQUESTED
+        bob_second_kvf = bob_second.olm.key_verification_requests[transaction_id]
+        assert bob_second_kvf.state == KVFState.REQUESTED
 
         assert not to_device_for_alice
 
@@ -3369,6 +3372,7 @@ class TestClass:
         )
 
         assert to_device_for_alice
+        assert bob_kvf.state == KVFState.READY
 
         aioresponse.get(
             sync_url,
@@ -3384,7 +3388,8 @@ class TestClass:
         await alice.sync()
         await alice.send_to_device_messages()
 
-        assert len(alice.olm.key_verification_requests[transaction_id]) == 1
+        assert alice_kvf.state == KVFState.READY
+        assert len(alice_kvf.devices) == 1
 
         assert len(to_device_for_bob) == 1
         aioresponse.get(
@@ -3399,12 +3404,11 @@ class TestClass:
         )
         to_device_for_bob.clear()
 
-        assert len(bob_second.olm.key_verification_requests) == 1
-
         await bob_second.sync()
-        print(bob_second.olm.key_verification_requests)
 
-        assert len(bob_second.olm.key_verification_requests) == 0
+        assert bob_second_kvf.state == KVFState.CANCELED
+
+        # TODO kvf done
 
     async def test_sas_verification(self, async_client_pair, aioresponse):
         alice, bob = async_client_pair
