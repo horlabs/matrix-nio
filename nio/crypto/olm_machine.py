@@ -2171,6 +2171,16 @@ class Olm:
                 )
                 self.key_verifications[event.transaction_id] = new_sas
 
+        elif isinstance(event, KeyVerificationDone):
+            logger.info(
+                f"Received a key verification done from {event.sender} "
+                f"{event.transaction_id}."
+            )
+            kvf = self.key_verification_requests[event.transaction_id]
+
+            if not kvf.done:
+                self.outgoing_to_device_messages.append(kvf.verification_done())
+
         else:
             sas = self.key_verifications.get(event.transaction_id, None)
 
@@ -2252,30 +2262,3 @@ class Olm:
                                 {},
                             )
                         )
-
-            elif isinstance(event, KeyVerificationDone):
-                sas = self.key_verifications.pop(event.transaction_id, None)
-
-                if sas.canceled:
-                    self.outgoing_to_device_messages.append(sas.get_cancellation())
-                    return
-
-                logger.info(
-                    f"Received a key verification done from {event.sender} "
-                    f"{sas.other_olm_device.id} {event.transaction_id}."
-                )
-
-                if (
-                    sas.verified
-                    and event.transaction_id in self.key_verification_requests
-                ):
-                    device = sas.other_olm_device
-
-                    self.outgoing_to_device_messages.append(
-                        ToDeviceMessage(
-                            "m.key.verification.done",
-                            device.user_id,
-                            device.id,
-                            {},
-                        )
-                    )

@@ -3307,7 +3307,6 @@ class TestClass:
         def bob_to_device_cb(url, data, **kwargs):
             nonlocal to_device_for_bob
             to_device_for_bob.append(json.loads(data))
-            print("cb", to_device_for_bob)
             return CallbackResult(status=200, payload={})
 
         aioresponse.post(
@@ -3367,9 +3366,7 @@ class TestClass:
 
         assert not to_device_for_alice
 
-        await bob.accept_key_verification_request(
-            list(bob.key_verification_requests.keys())[0]
-        )
+        await bob.accept_key_verification_request(transaction_id)
 
         assert to_device_for_alice
         assert bob_kvf.state == KVFState.READY
@@ -3399,7 +3396,7 @@ class TestClass:
                 self.olm_message_to_event(
                     to_device_for_bob[0], bob_second, alice, "m.key.verification.cancel"
                 ),
-                "5",
+                "6",
             ),
         )
         to_device_for_bob.clear()
@@ -3408,7 +3405,22 @@ class TestClass:
 
         assert bob_second_kvf.state == KVFState.CANCELED
 
-        # TODO kvf done
+        await bob.finish_key_verification(transaction_id)
+        aioresponse.get(
+            sync_url,
+            status=200,
+            payload=self.sync_with_to_device_events(
+                self.olm_message_to_event(
+                    to_device_for_alice, alice, bob, "m.key.verification.done"
+                ),
+                "7",
+            ),
+        )
+        assert alice_kvf.state == KVFState.READY
+        await alice.sync()
+
+        assert alice_kvf.state == KVFState.DONE
+        assert bob_kvf.state == KVFState.DONE
 
     async def test_sas_verification(self, async_client_pair, aioresponse):
         alice, bob = async_client_pair

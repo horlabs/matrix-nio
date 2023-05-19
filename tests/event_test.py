@@ -454,6 +454,7 @@ class TestClass:
         ]:
             parsed_dict = TestClass._load_response(f"tests/data/events/{event_file}")
             parsed_dict["content"].pop("transaction_id")
+            parsed_dict["content"]["placeholder"] = "done"
             event = ToDeviceEvent.parse_event(parsed_dict)
             assert isinstance(event, UnknownBadEvent)
 

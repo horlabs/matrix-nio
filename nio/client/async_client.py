@@ -1519,6 +1519,30 @@ class AsyncClient(Client):
         return await self.to_device(message, tx_id)
 
     @logged_in_async
+    @store_loaded
+    async def finish_key_verification(
+        self, transaction_id: str, tx_id: Optional[str] = None
+    ) -> Union[ToDeviceResponse, ToDeviceError]:
+        """Finish a interactive key verification.
+
+        Returns either a `ToDeviceResponse` if the request was successful or
+        a `ToDeviceError` if there was an error with the request.
+
+        Args:
+            device (OlmDevice): An device with which we would like to start the
+                interactive key verification process.
+        """
+        if transaction_id not in self.key_verification_requests:
+            raise LocalProtocolError(
+                f"Key verification request with the transaction id {transaction_id} does not exist."
+            )
+
+        kvf = self.key_verification_requests[transaction_id]
+
+        message = kvf.verification_done()
+        return await self.to_device(message, tx_id)
+
+    @logged_in_async
     async def to_device(
         self,
         message: ToDeviceMessage,

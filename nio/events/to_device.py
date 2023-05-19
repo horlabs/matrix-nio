@@ -77,10 +77,7 @@ class ToDeviceEvent:
 
         """
         # A redacted event will have an empty content.
-        if (
-            not event_dict["content"]
-            and event_dict["type"] != "m.key.verification.done"
-        ):
+        if not event_dict["content"]:
             return None
 
         if event_dict["type"] == "m.room.encrypted":
@@ -430,14 +427,7 @@ class KeyVerificationCancel(KeyVerificationCancelMixin, KeyVerificationEvent):
 
 @dataclass
 class KeyVerificationDone(KeyVerificationDoneMixin, KeyVerificationEvent):
-    """Event signaling the end of a key verification process.
-
-    Attributes:
-        code (str): The error code for why the process/request was canceled by
-            the user.
-        reason (str): A human readable description of the cancellation code.
-
-    """
+    """Event signaling the end of a key verification process."""
 
     @classmethod
     @verify(Schemas.key_verification_done)

@@ -49,6 +49,11 @@ class KeyVerificationFramework:
 
     # TODO: timeout etc
 
+    @property
+    def done(self) -> bool:
+        """Is the verification request canceled."""
+        return self.state == KVFState.DONE
+
     def request_verification(self, device: OlmDevice) -> ToDeviceMessage:
         if self.state != KVFState.CREATED and self.state != KVFState.REQUESTED:
             raise LocalProtocolError(
@@ -185,7 +190,9 @@ class KeyVerificationFramework:
             "m.key.verification.done",
             self.devices[0].user_id,
             self.devices[0].id,
-            {},
+            {
+                "transaction_id": self.transaction_id,
+            },
         )
 
         self.state = KVFState.DONE
