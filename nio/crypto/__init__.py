@@ -32,6 +32,8 @@ if package_installed("olm"):
     )
     from .device import DeviceStore, OlmDevice, TrustState
     from .key_request import OutgoingKeyRequest
+    from .key_verification_framework import KeyVerificationFramework as KVF
+    from .key_verification_framework import KVFState
     from .log import logger
     from .memorystores import GroupSessionStore, SessionStore
     from .olm_machine import Olm

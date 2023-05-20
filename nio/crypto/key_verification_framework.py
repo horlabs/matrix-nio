@@ -181,10 +181,13 @@ class KeyVerificationFramework:
     def verification_done(self) -> ToDeviceMessage:
         """Create a content dictionary to signal the end of verification."""
         if self.state == KVFState.CANCELED:
-            raise LocalProtocolError("key verification was canceled before finished")
+            raise LocalProtocolError("Key verification was canceled before finished")
 
         if self.state == KVFState.DONE:
-            raise LocalProtocolError("key verification already finished")
+            raise LocalProtocolError("Key verification already finished")
+
+        if self.state != KVFState.READY:
+            raise LocalProtocolError("Key verification not finished")
 
         message = ToDeviceMessage(
             "m.key.verification.done",
