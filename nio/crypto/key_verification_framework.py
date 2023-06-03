@@ -19,6 +19,7 @@ class KVFState(Enum):
     DONE = auto()
 
 
+# TODO: Documentation
 class KeyVerificationFramework:
     _user_cancel_error = ("m.user", "Canceled by user")
     _user_accepted_reason = (
@@ -55,6 +56,10 @@ class KeyVerificationFramework:
         return self.state == KVFState.DONE
 
     def request_verification(self, device: OlmDevice) -> ToDeviceMessage:
+        if not self.we_requested_it:
+            raise LocalProtocolError(
+                "Request was not started by us, can't start another request."
+            )
         if self.state != KVFState.CREATED and self.state != KVFState.REQUESTED:
             raise LocalProtocolError(
                 "Key verification request with the transaction id {transaction_id} already accepted."
