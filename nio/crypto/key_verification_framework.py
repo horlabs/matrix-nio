@@ -48,11 +48,11 @@ class KeyVerificationFramework:
 
         return obj
 
-    # TODO: timeout etc
+    # TODO: timeout etc?
 
     @property
     def done(self) -> bool:
-        """Is the verification request canceled."""
+        """Is the verification request done."""
         return self.state == KVFState.DONE
 
     def request_verification(self, device: OlmDevice) -> ToDeviceMessage:
@@ -120,6 +120,7 @@ class KeyVerificationFramework:
     def verification_request_accepted(
         self, accepting_device: OlmDevice
     ) -> List[ToDeviceMessage]:
+        # TODO: Only initiator can "accept" the request, since the other one will send the ready message
         if accepting_device not in self.devices:
             raise LocalProtocolError(
                 f"Received key verification ready from unknown device: {accepting_device.device_id}"
@@ -171,6 +172,7 @@ class KeyVerificationFramework:
         return messages
 
     def process_cancellation(self) -> List[ToDeviceMessage]:
+        # TODO: Check state
         self.state = KVFState.CANCELED
         if not self.we_requested_it:
             return []
