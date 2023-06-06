@@ -4,7 +4,12 @@ import pytest
 from helpers import faker
 
 from nio.crypto import KVF, KVFState, OlmDevice
-from nio.events import KeyVerificationDone, KeyVerificationReady, KeyVerificationRequest, KeyVerificationCancel
+from nio.events import (
+    KeyVerificationCancel,
+    KeyVerificationDone,
+    KeyVerificationReady,
+    KeyVerificationRequest,
+)
 from nio.exceptions import LocalProtocolError
 
 alice_id = "@alice:example.org"
@@ -105,7 +110,6 @@ class TestClass:
         assert alice.state == KVFState.DONE
         assert alice.done == True
 
-
     def test_kvf_local_errors(self):
         alice = KVF(alice_device_id)
 
@@ -122,7 +126,7 @@ class TestClass:
         )
 
         with pytest.raises(LocalProtocolError):
-            bob.request_verification(alice_device)        
+            bob.request_verification(alice_device)
 
         bob.accept_verification_request()
         with pytest.raises(LocalProtocolError):
@@ -135,7 +139,7 @@ class TestClass:
         alice.verification_done()
         with pytest.raises(LocalProtocolError):
             alice.verification_done()
-        
+
         bob.cancel_verification(alice_device)
         with pytest.raises(LocalProtocolError):
             bob.verification_done()
