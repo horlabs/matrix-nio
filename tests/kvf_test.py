@@ -131,15 +131,32 @@ class TestClass:
         bob.accept_verification_request()
         with pytest.raises(LocalProtocolError):
             alice.verification_request_accepted(alice_device)
+        with pytest.raises(LocalProtocolError):
+            bob.verification_request_accepted(alice_device)
 
         alice.verification_request_accepted(bob_device)
         with pytest.raises(LocalProtocolError):
             alice.request_verification(bob_device)
 
+        # TODO: Add cancel for bob2 here and test double cancel
+
         alice.verification_done()
         with pytest.raises(LocalProtocolError):
             alice.verification_done()
+        with pytest.raises(LocalProtocolError):
+            alice.cancel_verification(bob_device)
 
         bob.cancel_verification(alice_device)
         with pytest.raises(LocalProtocolError):
             bob.verification_done()
+        with pytest.raises(LocalProtocolError):
+            bob.cancel_verification(alice_device)
+
+    def test_kvf_double_request(self):
+        alice = KVF(alice_device_id)
+        assert alice.state == KVFState.CREATED
+
+        alice.request_verification(bob_device)
+
+        with pytest.raises(LocalProtocolError):
+            alice.request_verification(bob_device)

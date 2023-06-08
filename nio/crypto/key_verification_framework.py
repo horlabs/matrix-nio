@@ -64,9 +64,10 @@ class KeyVerificationFramework:
             raise LocalProtocolError(
                 "Key verification request with the transaction id {transaction_id} already accepted."
             )
+        if device in self.devices:
+            raise LocalProtocolError(f"Already requested device {device.device_id}.")
 
         self.state = KVFState.REQUESTED
-        # TODO: Prevent same device more than once
         self.devices.append(device)
 
         content = {
@@ -120,7 +121,11 @@ class KeyVerificationFramework:
     def verification_request_accepted(
         self, accepting_device: OlmDevice
     ) -> List[ToDeviceMessage]:
-        # TODO: Only initiator can "accept" the request, since the other one will send the ready message
+        if not self.we_requested_it:
+            raise LocalProtocolError(
+                f"Request was not initialized by us, but we received an unexpected ready message from device: {accepting_device.device_id}"
+            )
+
         if accepting_device not in self.devices:
             raise LocalProtocolError(
                 f"Received key verification ready from unknown device: {accepting_device.device_id}"
@@ -161,7 +166,13 @@ class KeyVerificationFramework:
         return message
 
     def cancel_verification(self, other_device: OlmDevice) -> List[ToDeviceMessage]:
-        # TODO: Check state
+        if self.state == KVFState.DONE:
+            raise LocalProtocolError(
+                "Verification already done, can't cancel it afterwards."
+            )
+        if self.state == KVFState.CANCELED:
+            raise LocalProtocolError("Verification request already canceled.")
+
         self.state = KVFState.CANCELED
         messages = []
         for device in self.devices:
