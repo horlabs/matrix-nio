@@ -2154,7 +2154,7 @@ class Olm:
             else:
                 old_sas = self.get_active_sas(event.sender, event.from_device)
 
-                if old_sas and not old_sas.requested:  #  TODO: Remove second condition?
+                if old_sas:  #  TODO: Remove second condition?
                     logger.info(
                         "Found an active verification process for the "
                         "same user/device combination, "
