@@ -197,7 +197,6 @@ class Sas(olm.Sas):
         self.chosen_key_agreement: Optional[str] = None
         self.state = SasState.created
         self.we_started_it = True
-        self.requested = False
         self.sas_accepted = False
         self.commitment = None
         self.cancel_reason = ""
