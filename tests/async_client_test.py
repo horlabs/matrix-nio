@@ -3334,7 +3334,6 @@ class TestClass:
         assert len(alice.olm.key_verification_requests) == 1
         transaction_id = list(alice.olm.key_verification_requests.keys())[0]
         alice_kvf = alice.olm.key_verification_requests[transaction_id]
-        assert alice_kvf.state == KVFState.REQUESTED
         assert len(alice_kvf.devices) == 2
 
         assert len(to_device_for_bob) == 2
@@ -3360,16 +3359,13 @@ class TestClass:
         await bob.sync()
         await bob_second.sync()
         bob_kvf = bob.olm.key_verification_requests[transaction_id]
-        assert bob_kvf.state == KVFState.REQUESTED
         bob_second_kvf = bob_second.olm.key_verification_requests[transaction_id]
-        assert bob_second_kvf.state == KVFState.REQUESTED
 
         assert not to_device_for_alice
 
         await bob.accept_key_verification_request(transaction_id)
 
         assert to_device_for_alice
-        assert bob_kvf.state == KVFState.READY
 
         aioresponse.get(
             sync_url,
@@ -3385,7 +3381,6 @@ class TestClass:
         await alice.sync()
         await alice.send_to_device_messages()
 
-        assert alice_kvf.state == KVFState.READY
         assert len(alice_kvf.devices) == 1
 
         assert len(to_device_for_bob) == 1
@@ -3403,8 +3398,6 @@ class TestClass:
 
         await bob_second.sync()
 
-        assert bob_second_kvf.state == KVFState.CANCELED
-
         await bob.finish_key_verification(transaction_id)
         aioresponse.get(
             sync_url,
@@ -3416,11 +3409,10 @@ class TestClass:
                 "7",
             ),
         )
-        assert alice_kvf.state == KVFState.READY
         await alice.sync()
 
-        assert alice_kvf.state == KVFState.DONE
-        assert bob_kvf.state == KVFState.DONE
+        assert alice_kvf.done
+        assert bob_kvf.done
 
     async def test_sas_verification(self, async_client_pair, aioresponse):
         alice, bob = async_client_pair

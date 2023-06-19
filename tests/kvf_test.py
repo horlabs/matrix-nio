@@ -92,6 +92,8 @@ class TestClass:
         cancel_event = KeyVerificationCancel.from_dict(cancel)
         assert isinstance(cancel_event, KeyVerificationCancel)
         assert alice.state == KVFState.CANCELED
+        with pytest.raises(LocalProtocolError):
+            alice.verification_request_accepted(bob_device)
 
     def test_kvf_done(self):
         alice = KVF(alice_device_id)
@@ -117,10 +119,16 @@ class TestClass:
             alice.accept_verification_request()
 
         with pytest.raises(LocalProtocolError):
+            alice.verification_request_accepted(bob_device)
+
+        with pytest.raises(LocalProtocolError):
             alice.verification_done()
 
         alice.request_verification(bob_device)
         alice.request_verification(bob_device_2)
+        with pytest.raises(LocalProtocolError):
+            alice.request_verification(bob_device)
+
         bob = KVF.from_key_verification_request(
             bob_device_id, alice.transaction_id, alice_device
         )
@@ -128,7 +136,12 @@ class TestClass:
         with pytest.raises(LocalProtocolError):
             bob.request_verification(alice_device)
 
+        with pytest.raises(LocalProtocolError):
+            bob.verification_request_accepted(alice_device)
+
         bob.accept_verification_request()
+        with pytest.raises(LocalProtocolError):
+            bob.accept_verification_request()
         with pytest.raises(LocalProtocolError):
             alice.verification_request_accepted(alice_device)
         with pytest.raises(LocalProtocolError):
@@ -138,7 +151,8 @@ class TestClass:
         with pytest.raises(LocalProtocolError):
             alice.request_verification(bob_device)
 
-        # TODO: Add cancel for bob2 here and test double cancel
+        with pytest.raises(LocalProtocolError):
+            alice.verification_request_accepted(bob_device)
 
         alice.verification_done()
         with pytest.raises(LocalProtocolError):
@@ -147,6 +161,12 @@ class TestClass:
             alice.cancel_verification(bob_device)
 
         bob.cancel_verification(alice_device)
+        with pytest.raises(LocalProtocolError):
+            bob.accept_verification_request()
+        with pytest.raises(LocalProtocolError):
+            bob.cancel_verification(alice_device)
+        with pytest.raises(LocalProtocolError):
+            bob.process_cancellation()
         with pytest.raises(LocalProtocolError):
             bob.verification_done()
         with pytest.raises(LocalProtocolError):

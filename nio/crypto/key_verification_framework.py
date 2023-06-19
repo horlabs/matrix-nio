@@ -24,7 +24,7 @@ class KeyVerificationFramework:
     _user_cancel_error = ("m.user", "Canceled by user")
     _user_accepted_reason = (
         "m.accepted",
-        "Key verification request was accepted by a different device.",
+        "Key verification request was accepted by another device.",
     )
 
     def __init__(self, own_device: str, transaction_id: Optional[str] = None):
@@ -93,12 +93,19 @@ class KeyVerificationFramework:
             transaction_id (str): The transaction id of the interactive key
                 verification.
 
-        Returns a ``ToDeviceMessage`` that should be sent to to the homeserver.
+        Returns a ``ToDeviceMessage`` that should be sent to the homeserver.
         """
         if self.we_requested_it:
             raise LocalProtocolError(
                 "Verification request was send by us, can't accept offer."
             )
+
+        if self.state == KVFState.CANCELED:
+            raise LocalProtocolError(
+                "Request was canceled before receiving ready message."
+            )
+        if self.state != KVFState.REQUESTED:
+            raise LocalProtocolError("Request already accepted.")
 
         other_device = self.devices[0]
 
@@ -125,7 +132,14 @@ class KeyVerificationFramework:
             raise LocalProtocolError(
                 f"Request was not initialized by us, but we received an unexpected ready message from device: {accepting_device.device_id}"
             )
-
+        if self.state == KVFState.CREATED:
+            raise LocalProtocolError("Cannot accept before sending a request.")
+        if self.state == KVFState.CANCELED:
+            raise LocalProtocolError(
+                "Request was canceled before receiving ready message."
+            )
+        if self.state != KVFState.REQUESTED:
+            raise LocalProtocolError("Request already accepted.")
         if accepting_device not in self.devices:
             raise LocalProtocolError(
                 f"Received key verification ready from unknown device: {accepting_device.device_id}"
@@ -183,7 +197,10 @@ class KeyVerificationFramework:
         return messages
 
     def process_cancellation(self) -> List[ToDeviceMessage]:
-        # TODO: Check state
+        if self.state == KVFState.CANCELED:
+            raise LocalProtocolError("Key verification already canceled")
+        if self.state == KVFState.DONE:
+            raise LocalProtocolError("We cannot cancel finished key verifications.")
         self.state = KVFState.CANCELED
         if not self.we_requested_it:
             return []
