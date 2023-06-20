@@ -1,3 +1,19 @@
+# -*- coding: utf-8 -*-
+
+# Copyright © 2019 Damir Jelić <poljar@termina.org.uk>
+#
+# Permission to use, copy, modify, and/or distribute this software for
+# any purpose with or without fee is hereby granted, provided that the
+# above copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+# SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER
+# RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF
+# CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+# CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 from __future__ import annotations
 
 from enum import Enum, auto
@@ -12,6 +28,11 @@ from ..exceptions import LocalProtocolError
 
 
 class KVFState(Enum):
+    """Key Verification Framework enum.
+
+    This enum tracks the current state of our verification process.
+    """
+
     CREATED = auto()
     REQUESTED = auto()
     READY = auto()
@@ -21,12 +42,31 @@ class KVFState(Enum):
 
 # TODO: Documentation
 class KeyVerificationFramework:
+    """Matrix Short Authentication String class.
+
+    This class implements a state machine to provide the framework for device
+    verifications using any verification method.
+
+    Attributes:
+        we_requested_it (bool): Is true if the verification request was send
+            by us, otherwise false.
+        TODO
+
+    Args:
+        own_device (str): The device id of our own user.
+        transaction_id (str, optional): A string that will uniquely identify
+            this verification process. A random and unique string will be
+            generated if one isn't provided.
+
+    """
+
     _user_cancel_error = ("m.user", "Canceled by user")
     _user_accepted_reason = (
         "m.accepted",
         "Key verification request was accepted by another device.",
     )
 
+    # TODO: Possible verification methods as arg?
     def __init__(self, own_device: str, transaction_id: Optional[str] = None):
         self.state = KVFState.CREATED
         self.own_device = own_device
@@ -54,6 +94,11 @@ class KeyVerificationFramework:
     def done(self) -> bool:
         """Is the verification request done."""
         return self.state == KVFState.DONE
+
+    @property
+    def canceled(self) -> bool:
+        """Is the verification request canceled."""
+        return self.state == KVFState.CANCELED
 
     def request_verification(self, device: OlmDevice) -> ToDeviceMessage:
         if not self.we_requested_it:

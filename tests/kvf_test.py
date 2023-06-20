@@ -92,6 +92,7 @@ class TestClass:
         cancel_event = KeyVerificationCancel.from_dict(cancel)
         assert isinstance(cancel_event, KeyVerificationCancel)
         assert alice.state == KVFState.CANCELED
+        assert alice.canceled == True
         with pytest.raises(LocalProtocolError):
             alice.verification_request_accepted(bob_device)
 
@@ -159,6 +160,8 @@ class TestClass:
             alice.verification_done()
         with pytest.raises(LocalProtocolError):
             alice.cancel_verification(bob_device)
+        with pytest.raises(LocalProtocolError):
+            alice.process_cancellation()
 
         bob.cancel_verification(alice_device)
         with pytest.raises(LocalProtocolError):
