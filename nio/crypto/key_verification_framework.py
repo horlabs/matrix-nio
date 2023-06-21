@@ -131,7 +131,7 @@ class KeyVerificationFramework:
 
         return message
 
-    def accept_verification_request(self) -> ToDeviceMessage:
+    def ready_for_verification(self) -> ToDeviceMessage:
         """Accept a key verification request.
 
         Args:

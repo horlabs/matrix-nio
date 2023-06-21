@@ -1416,7 +1416,7 @@ class AsyncClient(Client):
 
         kvf = self.key_verification_requests[transaction_id]
 
-        message = kvf.accept_verification_request()
+        message = kvf.ready_for_verification()
         return await self.to_device(message, tx_id)
 
     @logged_in_async
